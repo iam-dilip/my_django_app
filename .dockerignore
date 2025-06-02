@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.pyc
+*.log
+__pycache__/
+venv/
+.env
+db.sqlite3
+media/
+static_files/
