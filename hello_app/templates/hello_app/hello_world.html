@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Django Container App</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #f4f4f4; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+        .created-at { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to My Simple Django App!</h1>
+    <p>This is a basic Django app running inside a Docker container.</p>
+
+    <h2>Messages:</h2>
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li>
+                    <strong>{{ message.text }}</strong>
+                    <span class="created-at"> ({{ message.created_at|date:"M d, Y H:i" }})</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No messages yet. Add some through the Django admin!</p>
+    {% endif %}
+
+    <p>Current Time: {{ current_time }}</p>
+</body>
+</html>
