@@ -70,9 +70,10 @@ pipeline {
             steps {
                 echo 'Waiting for Quality Gate status from SonarQube...'
                 script {
-                    // Reduced timeout to 5 minutes and explicitly specified the server name
-                    timeout(time: 5, unit: 'MINUTES') { // <--- Changed to 5 minutes
-                        def qg = waitForQualityGate(server: env.SONARQUBE_SERVER_NAME) // <--- Added server parameter
+                    // Set timeout to 1 minute. If it still times out,
+                    // the issue is likely network connectivity or a proxy/firewall blocking communication.
+                    timeout(time: 1, unit: 'MINUTES') { // <--- Changed to 1 minute
+                        def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
                             error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
                         }
