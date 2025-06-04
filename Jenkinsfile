@@ -52,19 +52,15 @@ pipeline {
             steps {
                 echo 'Running SonarQube analysis...'
                 script {
-                    // Use the 'tool' step to install the SonarScanner CLI.
-                    // It returns the path to the installed tool.
-                    def sonarScannerHome = tool 'SonarScanner CLI' // 'SonarScanner CLI' must match the name in Global Tool Configuration
+                    def sonarScannerHome = tool 'SonarScanner CLI'
 
-                    // The 'withSonarQubeEnv' step injects SonarQube environment variables.
                     withSonarQubeEnv(server: env.SONARQUBE_SERVER_NAME, credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
-                        // Explicitly use the full path to the sonar-scanner executable.
-                        // Quote the sonar.projectName value to handle spaces correctly.
                         sh "${sonarScannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=${env.SONARQUBE_PROJECT_KEY} \
                             -Dsonar.projectName='${env.SONARQUBE_PROJECT_NAME}' \
                             -Dsonar.sources=./ \
-                            -Dsonar.python.version=3.10"
+                            -Dsonar.python.version=3.10 \
+                            -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**'" // <--- ADDED EXCLUSIONS HERE
                     }
                 }
             }
@@ -74,7 +70,8 @@ pipeline {
             steps {
                 echo 'Waiting for Quality Gate status from SonarQube...'
                 script {
-                    timeout(time: 10, unit: 'MINUTES') {
+                    // Keeping 20 minutes for now, but if exclusions work well, we can reduce it.
+                    timeout(time: 20, unit: 'MINUTES') {
                         def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
                             error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
