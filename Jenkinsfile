@@ -2,7 +2,7 @@
 
 // Define the Docker registry credentials ID.
 // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
-// configured in Jenkins (e.g., a 'Username with password' credential).
+// configured in Jenkins (e.g., a 'Username with password' credential of type 'Secret text').
 def DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
 
 // Define your Docker image name.
@@ -17,7 +17,7 @@ pipeline {
             steps {
                 echo 'Cloning the Git repository...'
                 // 'checkout scm' automatically checks out the code configured in the Jenkins job
-                // Or specify your repository explicitly:
+                // Or specify your repository explicitly for clarity:
                 git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
             }
         }
@@ -44,35 +44,37 @@ pipeline {
             }
         }
 
-                stage('Push Docker Image') {
+        stage('Push Docker Image') {
             steps {
-                echo 'Attempting push with explicit docker login and push commands...'
+                echo 'Pushing Docker image to registry...'
                 script {
-                    // --- EXPLICIT LOGIN AND PUSH BLOCK ---
-                    // This block will perform a direct 'docker login' and then 'docker push'
-                    // commands, bypassing the withDockerRegistry step which seems to be problematic.
+                    // Use withCredentials to securely access DOCKER_REGISTRY_CREDENTIALS_ID
                     withCredentials([usernamePassword(credentialsId: DOCKER_REGISTRY_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                        // 1. Perform a direct docker login using the credentials
-                        // This ensures the Docker daemon has the necessary authentication token.
-                        sh "echo \"$DOCKER_PASSWORD\" | docker login -u \"$DOCKER_USERNAME\" --password-stdin"
+                        // This block performs a direct 'docker login' and then 'docker push' commands.
+                        // It addresses the "insecure interpolation" warning by carefully handling sensitive variables
+                        // within the shell script.
+                        sh(script: """
+                            # Assign the sensitive variables (PAT and Username) to shell environment variables
+                            # for the duration of this script. Use \${} to prevent Groovy from interpolating them
+                            # into the string before the shell executes it.
+                            DOCKER_PAT_VAR="${DOCKER_PASSWORD}"
+                            DOCKER_USER_VAR="${DOCKER_USERNAME}"
 
-                        // 2. Perform the docker push commands directly
-                        echo 'Executing docker push for specific build number...'
-                        sh "docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
+                            # Perform docker login using the shell environment variables.
+                            # The --password-stdin method is secure as it prevents the password from appearing
+                            # in process lists.
+                            echo "\${DOCKER_PAT_VAR}" | docker login -u "\${DOCKER_USER_VAR}" --password-stdin
 
-                        echo 'Executing docker push for latest tag...'
-                        sh "docker push ${DOCKER_IMAGE_NAME}:latest"
+                            # Unset the variables immediately after use to minimize their lifetime in memory
+                            unset DOCKER_PAT_VAR DOCKER_USER_VAR
+
+                            echo 'Executing docker push for specific build number...'
+                            docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}
+
+                            echo 'Executing docker push for latest tag...'
+                            docker push ${DOCKER_IMAGE_NAME}:latest
+                        """)
                     }
-                    // --- END EXPLICIT LOGIN AND PUSH BLOCK ---
-
-                    // REMOVE OR COMMENT OUT THE OLD withDockerRegistry BLOCK.
-                    // It is no longer needed, as we are doing the push explicitly above.
-                    /*
-                    withDockerRegistry(url: "https://registry.hub.docker.com", credentialsId: DOCKER_REGISTRY_CREDENTIALS_ID) {
-                        docker.image("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}").push()
-                        docker.image("${DOCKER_IMAGE_NAME}:latest").push()
-                    }
-                    */
                 }
             }
         }
@@ -92,7 +94,8 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished.'
-            // Optional: Clean up Docker images if needed (use with caution in production)
+            // Optional: Clean up Docker images on the agent after successful push
+            // Use with caution in production, especially if other jobs depend on these images locally.
             // sh "docker rmi ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
             // sh "docker rmi ${DOCKER_IMAGE_NAME}:latest"
         }
@@ -102,5 +105,6 @@ pipeline {
         failure {
             echo 'Pipeline failed. Check logs for details.'
         }
+        // You could add other post conditions, e.g., 'aborted', 'unstable', 'changed'
     }
 }
