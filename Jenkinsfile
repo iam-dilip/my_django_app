@@ -1,13 +1,6 @@
 // Jenkinsfile (place this in the root of your Git repository)
 
-// Define the Docker registry credentials ID.
-// IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
-// configured in Jenkins (e.g., a 'Username with password' credential of type 'Secret text').
-def DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
-
-// Define your Docker image name.
-// IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
-def DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
+// ... (existing DOCKER_REGISTRY_CREDENTIALS_ID and DOCKER_IMAGE_NAME definitions)
 
 // SonarQube specific definitions
 // IMPORTANT: Match 'sonarqube-server-id' with the Name you configured in Jenkins -> Configure System -> SonarQube servers
@@ -18,14 +11,12 @@ def SONARQUBE_PROJECT_KEY = 'my-django-app'
 def SONARQUBE_PROJECT_NAME = 'My Django App'
 
 pipeline {
-    agent any // You can specify a more specific agent if you have labels (e.g., agent { label 'docker-agent' })
+    agent any
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning the Git repository...'
-                // 'checkout scm' automatically checks out the code configured in the Jenkins job
-                // Or specify your repository explicitly for clarity:
                 git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
             }
         }
@@ -33,9 +24,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'Building the Docker image...'
-                // REMOVE THE 'script { ... }' BLOCK HERE
-                docker.build("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}", ".")
-                docker.build("${DOCKER_IMAGE_NAME}:latest", ".")
+                script {
+                    // Docker.build is a scripted step, so it needs to be inside a script block.
+                    // Variables defined at the top level are accessible here.
+                    docker.build("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}", ".")
+                    docker.build("${DOCKER_IMAGE_NAME}:latest", ".")
+                }
             }
         }
 
@@ -53,23 +47,12 @@ pipeline {
             steps {
                 echo 'Running SonarQube analysis...'
                 script {
-                    // The 'withSonarQubeEnv' step injects the SonarQube server URL and token
-                    // based on the server ID configured in Jenkins -> Manage Jenkins -> Configure System.
-                    // The 'scannerHome' specifies the SonarScanner CLI installation configured in Global Tool Configuration.
-                    withSonarQubeEnv(credentialsId: SONARQUBE_SERVER_ID, scannerHome: 'SonarScanner CLI') { // Use the name you gave in Global Tool Config
-                        // The sonar-scanner command.
-                        // sonar.sources points to the root of your project checked out by Jenkins.
-                        // sonar.projectKey and sonar.projectName are unique identifiers for your project in SonarQube.
-                        // sonar.python.version is important for Python analysis.
-                        // sonar.python.coverage.reportPaths is for integrating coverage reports (e.g., from pytest-cov).
+                    withSonarQubeEnv(credentialsId: SONARQUBE_SERVER_ID, scannerHome: 'SonarScanner CLI') {
                         sh "sonar-scanner \
                             -Dsonar.projectKey=${SONARQUBE_PROJECT_KEY} \
                             -Dsonar.projectName=${SONARQUBE_PROJECT_NAME} \
                             -Dsonar.sources=./ \
                             -Dsonar.python.version=3.10"
-                            // If you integrate Python unit tests and coverage, you'd add:
-                            // -Dsonar.python.coverage.reportPaths=coverage.xml"
-                            // -Dsonar.python.xunit.reportPaths=junit.xml"
                     }
                 }
             }
@@ -79,10 +62,7 @@ pipeline {
             steps {
                 echo 'Waiting for Quality Gate status from SonarQube...'
                 script {
-                    // This step waits for SonarQube to complete its analysis and
-                    // check against the defined Quality Gate.
-                    // Timeout is important to prevent builds from hanging indefinitely.
-                    timeout(time: 10, unit: 'MINUTES') { // Max 10 minutes to wait for Quality Gate
+                    timeout(time: 10, unit: 'MINUTES') {
                         def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
                             error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
