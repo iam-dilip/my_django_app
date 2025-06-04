@@ -57,13 +57,12 @@ pipeline {
                     def sonarScannerHome = tool 'SonarScanner CLI' // 'SonarScanner CLI' must match the name in Global Tool Configuration
 
                     // The 'withSonarQubeEnv' step injects SonarQube environment variables.
-                    // Removed 'server' parameter to avoid the warning, as 'credentialsId' is often sufficient.
-                    withSonarQubeEnv(credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
+                    withSonarQubeEnv(server: env.SONARQUBE_SERVER_NAME, credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
                         // Explicitly use the full path to the sonar-scanner executable.
-                        // The executable is typically found in the 'bin' subdirectory of the tool's installation.
+                        // Quote the sonar.projectName value to handle spaces correctly.
                         sh "${sonarScannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=${env.SONARQUBE_PROJECT_KEY} \
-                            -Dsonar.projectName=${env.SONARQUBE_PROJECT_NAME} \
+                            -Dsonar.projectName='${env.SONARQUBE_PROJECT_NAME}' \
                             -Dsonar.sources=./ \
                             -Dsonar.python.version=3.10"
                     }
