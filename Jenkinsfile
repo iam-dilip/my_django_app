@@ -3,14 +3,20 @@
 pipeline {
     agent any
 
+    // Define environment variables at the pipeline level
+    // These will be accessible as env.VARIABLE_NAME throughout the pipeline
     environment {
-        // ... (existing DOCKER_REGISTRY_CREDENTIALS_ID and DOCKER_IMAGE_NAME definitions)
+        // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
+        DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
+
+        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
+        DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
         // SonarQube specific definitions
-        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins
-        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave in Jenkins global config
-        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials
-        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- CHANGE THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
+        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins -> Manage Jenkins -> Configure System
+        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave your SonarQube server in Jenkins global config
+        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials (e.g., 'sonarqube-token')
+        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- SET THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
         // IMPORTANT: This should be the Project Key you created in SonarQube UI
         SONARQUBE_PROJECT_KEY = 'my-django-app'
         // IMPORTANT: This should be the Project Name you created in SonarQube UI
@@ -18,7 +24,31 @@ pipeline {
     }
 
     stages {
-        // ... (Checkout, Build Docker Image, Run Basic Checks stages)
+        stage('Checkout') {
+            steps {
+                echo 'Cloning the Git repository...'
+                git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building the Docker image...'
+                script {
+                    docker.build("${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}", ".")
+                    docker.build("${env.DOCKER_IMAGE_NAME}:latest", ".")
+                }
+            }
+        }
+
+        stage('Run Basic Checks') {
+            steps {
+                echo 'Running basic Django checks inside a temporary container...'
+                script {
+                    sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest python manage.py check"
+                }
+            }
+        }
 
         stage('SonarQube Analysis') {
             steps {
@@ -37,7 +67,48 @@ pipeline {
             }
         }
 
-        // ... (SonarQube Quality Gate, Push Docker Image, Deploy stages)
+        stage('SonarQube Quality Gate') {
+            steps {
+                echo 'Waiting for Quality Gate status from SonarQube...'
+                script {
+                    timeout(time: 10, unit: 'MINUTES') {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo 'Pushing Docker image to registry...'
+                script {
+                    withCredentials([usernamePassword(credentialsId: env.DOCKER_REGISTRY_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh(script: """
+                            DOCKER_PAT_VAR="${DOCKER_PASSWORD}"
+                            DOCKER_USER_VAR="${DOCKER_USERNAME}"
+                            echo "\${DOCKER_PAT_VAR}" | docker login -u "\${DOCKER_USER_VAR}" --password-stdin
+                            unset DOCKER_PAT_VAR DOCKER_USER_VAR
+
+                            echo 'Executing docker push for specific build number...'
+                            docker push ${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}
+
+                            echo 'Executing docker push for latest tag...'
+                            docker push ${env.DOCKER_IMAGE_NAME}:latest
+                        """)
+                    }
+                }
+            }
+        }
+
+        stage('Deploy (Placeholder)') {
+            steps {
+                echo 'Deployment stage: This is where you would add your deployment logic.'
+                echo "Image to deploy: ${env.DOCKER_IMAGE_NAME}:latest"
+            }
+        }
     }
 
     post {
