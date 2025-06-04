@@ -3,8 +3,6 @@
 pipeline {
     agent any
 
-    // Define environment variables at the pipeline level
-    // These will be accessible as env.VARIABLE_NAME throughout the pipeline
     environment {
         // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
@@ -54,9 +52,14 @@ pipeline {
             steps {
                 echo 'Running SonarQube analysis...'
                 script {
-                    // Use 'server' parameter for the SonarQube server NAME
-                    // Use 'credentialsId' parameter for the SonarQube TOKEN CREDENTIAL ID
-                    withSonarQubeEnv(server: env.SONARQUBE_SERVER_NAME, credentialsId: env.SONARQUBE_CREDENTIAL_ID, scannerHome: 'SonarScanner CLI') {
+                    // Use the 'tool' step to add the SonarScanner CLI to the PATH
+                    // 'SonarScanner CLI' must match the name configured in Jenkins -> Global Tool Configuration
+                    tool 'SonarScanner CLI'
+
+                    // The 'withSonarQubeEnv' step:
+                    // - 'server' parameter: Specifies the SonarQube server configuration name (from Manage Jenkins -> Configure System).
+                    // - 'credentialsId' parameter: Specifies the ID of the Secret Text credential for the SonarQube token.
+                    withSonarQubeEnv(server: env.SONARQUBE_SERVER_NAME, credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
                         sh "sonar-scanner \
                             -Dsonar.projectKey=${env.SONARQUBE_PROJECT_KEY} \
                             -Dsonar.projectName=${env.SONARQUBE_PROJECT_NAME} \
