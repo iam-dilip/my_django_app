@@ -1,31 +1,6 @@
 Django CI/CD Project: Simple Web App with Automated Deployment
 This project demonstrates a basic Django web application, containerized with Docker, and integrated into a Continuous Integration/Continuous Delivery (CI/CD) pipeline using Jenkins. The pipeline automates building the Docker image, running basic checks, and pushing the image to Docker Hub.
 
-Table of Contents
-Project Overview
-
-Prerequisites
-
-Local Development Setup
-
-Dockerization
-
-CI/CD with Jenkins
-
-5.1. Docker Hub Setup
-
-5.2. Jenkins Credentials Configuration
-
-5.3. Jenkins Job Configuration
-
-5.4. Running the Pipeline
-
-Verification
-
-Troubleshooting Tips
-
-Future Enhancements
-
 1. Project Overview
 This repository contains a simple Django web application (my_django_app) that displays a "Hello World" message and a list of messages retrieved from a SQLite database. The application is designed to be easily containerized using Docker.
 
