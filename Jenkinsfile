@@ -15,7 +15,7 @@ pipeline {
                 echo 'Cloning the Git repository...'
                 // Assumes your Jenkins project is configured to use SCM (Git)
                 // 'checkout scm' automatically checks out the code configured in the job
-                git branch: 'main', url: 'https://github.com/dilip10jan/Java-based-Jenkins.git' // Replace with your actual repo URL if different
+                git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git' // Replace with your actual repo URL if different
             }
         }
 
@@ -59,17 +59,6 @@ pipeline {
                         docker.image("${DOCKER_IMAGE_NAME}:latest").push()
                     }
                 }
-            }
-        }
-
-        stage('Deploy (Placeholder)') {
-            steps {
-                echo 'Deployment stage: This is where you would add your deployment logic.'
-                echo 'For example, deploying to Kubernetes, a cloud VM, or another environment.'
-                echo "Image to deploy: ${DOCKER_IMAGE_NAME}:latest"
-                // Example:
-                // sh 'kubectl apply -f k8s-deployment.yaml'
-                // sh 'ansible-playbook deploy.yml'
             }
         }
     }
