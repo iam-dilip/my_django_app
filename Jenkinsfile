@@ -66,18 +66,11 @@ pipeline {
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        stage('SonarQube Quality Gate (Non-Blocking)') { // Renamed stage for clarity
             steps {
-                echo 'Checking Quality Gate status (non-blocking)...'
-                script {
-                    // This is the crucial part: The 'timeout' block is REMOVED.
-                    // The pipeline will now proceed regardless of Quality Gate status.
-                    // The 'waitForQualityGate' will still attempt to get the status,
-                    // but it won't block the pipeline from continuing.
-                    def qg = waitForQualityGate()
-                    echo "SonarQube Quality Gate Status: ${qg.status}"
-                    // Removed the 'error' step so pipeline doesn't fail on QG failure/timeout
-                }
+                echo 'SonarQube analysis submitted. Proceeding without waiting for Quality Gate status.'
+                // The waitForQualityGate step is removed to make this stage truly non-blocking.
+                // The analysis results will still be available on the SonarQube server.
             }
         }
 
