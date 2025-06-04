@@ -52,15 +52,16 @@ pipeline {
             steps {
                 echo 'Running SonarQube analysis...'
                 script {
-                    // Use the 'tool' step to add the SonarScanner CLI to the PATH
-                    // 'SonarScanner CLI' must match the name configured in Jenkins -> Global Tool Configuration
-                    tool 'SonarScanner CLI'
+                    // Use the 'tool' step to install the SonarScanner CLI.
+                    // It returns the path to the installed tool.
+                    def sonarScannerHome = tool 'SonarScanner CLI' // 'SonarScanner CLI' must match the name in Global Tool Configuration
 
-                    // The 'withSonarQubeEnv' step:
-                    // - 'server' parameter: Specifies the SonarQube server configuration name (from Manage Jenkins -> Configure System).
-                    // - 'credentialsId' parameter: Specifies the ID of the Secret Text credential for the SonarQube token.
-                    withSonarQubeEnv(server: env.SONARQUBE_SERVER_NAME, credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
-                        sh "sonar-scanner \
+                    // The 'withSonarQubeEnv' step injects SonarQube environment variables.
+                    // Removed 'server' parameter to avoid the warning, as 'credentialsId' is often sufficient.
+                    withSonarQubeEnv(credentialsId: env.SONARQUBE_CREDENTIAL_ID) {
+                        // Explicitly use the full path to the sonar-scanner executable.
+                        // The executable is typically found in the 'bin' subdirectory of the tool's installation.
+                        sh "${sonarScannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=${env.SONARQUBE_PROJECT_KEY} \
                             -Dsonar.projectName=${env.SONARQUBE_PROJECT_NAME} \
                             -Dsonar.sources=./ \
