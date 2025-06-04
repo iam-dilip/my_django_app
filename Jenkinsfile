@@ -1,6 +1,13 @@
 // Jenkinsfile (place this in the root of your Git repository)
 
-// ... (existing DOCKER_REGISTRY_CREDENTIALS_ID and DOCKER_IMAGE_NAME definitions)
+// Define the Docker registry credentials ID.
+// IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
+// configured in Jenkins (e.g., a 'Username with password' credential of type 'Secret text').
+def DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
+
+// Define your Docker image name.
+// IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
+def DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
 // SonarQube specific definitions
 // IMPORTANT: Match 'sonarqube-server-id' with the Name you configured in Jenkins -> Configure System -> SonarQube servers
@@ -11,12 +18,14 @@ def SONARQUBE_PROJECT_KEY = 'my-django-app'
 def SONARQUBE_PROJECT_NAME = 'My Django App'
 
 pipeline {
-    agent any
+    agent any // You can specify a more specific agent if you have labels (e.g., agent { label 'docker-agent' })
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning the Git repository...'
+                // 'checkout scm' automatically checks out the code configured in the Jenkins job
+                // Or specify your repository explicitly for clarity:
                 git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
             }
         }
@@ -24,10 +33,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'Building the Docker image...'
-                script {
-                    docker.build("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}", ".")
-                    docker.build("${DOCKER_IMAGE_NAME}:latest", ".")
-                }
+                // REMOVE THE 'script { ... }' BLOCK HERE
+                docker.build("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}", ".")
+                docker.build("${DOCKER_IMAGE_NAME}:latest", ".")
             }
         }
 
@@ -35,6 +43,7 @@ pipeline {
             steps {
                 echo 'Running basic Django checks inside a temporary container...'
                 script {
+                    // The '\$(pwd)' is escaped to be correctly interpreted by the shell, not Groovy.
                     sh "docker run --rm -v \$(pwd):/app ${DOCKER_IMAGE_NAME}:latest python manage.py check"
                 }
             }
