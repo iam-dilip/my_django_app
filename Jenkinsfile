@@ -54,7 +54,7 @@ pipeline {
                     // You need to configure a 'Username with password' credential in Jenkins
                     // with your Docker Hub username and Personal Access Token (PAT)
                     // and use its ID here.
-                    withDockerRegistry("https://registry.hub.docker.com", DOCKER_REGISTRY_CREDENTIALS_ID) {
+                    withDockerRegistry(url: "https://registry.hub.docker.com", credentialsId: DOCKER_REGISTRY_CREDENTIALS_ID) {
                         docker.image("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}").push()
                         docker.image("${DOCKER_IMAGE_NAME}:latest").push()
                     }
