@@ -41,7 +41,7 @@ pipeline {
                     // --rm removes the container after it exits
                     // -v $(pwd):/app mounts the current workspace into the container
                     // This assumes the base image used for building has python and manage.py available
-                    sh "docker run --rm -v $(pwd):/app ${DOCKER_IMAGE_NAME}:latest python manage.py check"
+                    sh "docker run --rm -v \$(pwd):/app ${DOCKER_IMAGE_NAME}:latest python manage.py check"
                 }
             }
         }
