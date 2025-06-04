@@ -44,26 +44,35 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
+                stage('Push Docker Image') {
             steps {
-                echo 'Attempting push and running diagnostic login...'
+                echo 'Attempting push with explicit docker login and push commands...'
                 script {
-                    // --- TEMPORARY DIAGNOSTIC BLOCK ---
-                    // This block attempts a direct 'docker login' inside the pipeline
-                    // using your Jenkins credentials. Its output in the logs will be crucial
-                    // for diagnosing authentication issues.
+                    // --- EXPLICIT LOGIN AND PUSH BLOCK ---
+                    // This block will perform a direct 'docker login' and then 'docker push'
+                    // commands, bypassing the withDockerRegistry step which seems to be problematic.
                     withCredentials([usernamePassword(credentialsId: DOCKER_REGISTRY_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                        // Pass the PAT securely via stdin to docker login
+                        // 1. Perform a direct docker login using the credentials
+                        // This ensures the Docker daemon has the necessary authentication token.
                         sh "echo \"$DOCKER_PASSWORD\" | docker login -u \"$DOCKER_USERNAME\" --password-stdin"
-                    }
-                    // --- END TEMPORARY DIAGNOSTIC BLOCK ---
 
-                    // Use withDockerRegistry to authenticate and push to Docker Hub
-                    // Note the use of named arguments: 'url:' and 'credentialsId:'
+                        // 2. Perform the docker push commands directly
+                        echo 'Executing docker push for specific build number...'
+                        sh "docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
+
+                        echo 'Executing docker push for latest tag...'
+                        sh "docker push ${DOCKER_IMAGE_NAME}:latest"
+                    }
+                    // --- END EXPLICIT LOGIN AND PUSH BLOCK ---
+
+                    // REMOVE OR COMMENT OUT THE OLD withDockerRegistry BLOCK.
+                    // It is no longer needed, as we are doing the push explicitly above.
+                    /*
                     withDockerRegistry(url: "https://registry.hub.docker.com", credentialsId: DOCKER_REGISTRY_CREDENTIALS_ID) {
                         docker.image("${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}").push()
                         docker.image("${DOCKER_IMAGE_NAME}:latest").push()
                     }
+                    */
                 }
             }
         }
