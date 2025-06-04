@@ -60,7 +60,7 @@ pipeline {
                             -Dsonar.projectName='${env.SONARQUBE_PROJECT_NAME}' \
                             -Dsonar.sources=./ \
                             -Dsonar.python.version=3.10 \
-                            -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**'" // <--- ADDED EXCLUSIONS HERE
+                            -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**'"
                     }
                 }
             }
@@ -70,9 +70,9 @@ pipeline {
             steps {
                 echo 'Waiting for Quality Gate status from SonarQube...'
                 script {
-                    // Keeping 20 minutes for now, but if exclusions work well, we can reduce it.
-                    timeout(time: 20, unit: 'MINUTES') {
-                        def qg = waitForQualityGate()
+                    // Reduced timeout to 5 minutes and explicitly specified the server name
+                    timeout(time: 5, unit: 'MINUTES') { // <--- Changed to 5 minutes
+                        def qg = waitForQualityGate(server: env.SONARQUBE_SERVER_NAME) // <--- Added server parameter
                         if (qg.status != 'OK') {
                             error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
                         }
