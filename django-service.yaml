@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-app-service
+spec:
+  selector:
+    app: django-app
+  type: NodePort # NodePort exposes the service on a port on each node's IP. Minikube often uses this.
+  ports:
+    - protocol: TCP
+      port: 80 # The port that the service exposes (e.g., public port)
+      targetPort: 8000 # The port the container is listening on
+      # nodePort: 30000-32767 # Optional: You can specify a port in this range, otherwise Minikube assigns one

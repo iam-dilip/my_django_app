@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-app-deployment
+  labels:
+    app: django-app
+spec:
+  replicas: 1 # Start with 1 replica for simplicity
+  selector:
+    matchLabels:
+      app: django-app
+  template:
+    metadata:
+      labels:
+        app: django-app
+    spec:
+      containers:
+      - name: django-app
+        image: dilip10jan/my-django-app:latest # Make sure this matches your Docker Hub username/image
+        ports:
+        - containerPort: 8000 # The port your Django app listens on
+        env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: "myproject.settings" # Adjust if your settings file path is different
+        # If you implement the SECRET_KEY fix later, you'd add:
+        # - name: DJANGO_SECRET_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: django-secret # Name of the Kubernetes Secret
+        #       key: secret_key_value # Key within that Secret
+        imagePullPolicy: Always # Ensures latest image is pulled from Docker Hub
