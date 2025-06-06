@@ -9,7 +9,7 @@ def test_hello_world_view_success(client):
     response = client.get(url)
 
     assert response.status_code == 200
-    assert "Hello, World!" in response.content.decode() # Check for expected text
+    assert "Welcome to My Simple Django App!" in response.content.decode() # Check for expected text
     assert "Messages" in response.content.decode() # Check for messages section
 
 @pytest.mark.django_db
