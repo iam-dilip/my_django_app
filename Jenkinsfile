@@ -44,10 +44,9 @@ pipeline {
             steps {
                 echo 'Running unit/integration tests...'
                 script {
-                    // Mount the current workspace to /app
-                    // Use --verbose and specify the 'tests/' directory explicitly for pytest
-                    // This tells pytest to look for tests specifically within the 'tests' folder.
-                    sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest \
+                    // Set DJANGO_SETTINGS_MODULE environment variable
+                    // Assuming your settings file is 'myproject/settings.py' relative to /app
+                    sh "docker run --rm -v \$(pwd):/app -e DJANGO_SETTINGS_MODULE=myproject.settings ${env.DOCKER_IMAGE_NAME}:latest \
                         python -m pytest --verbose tests/ --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml"
                 }
             }
