@@ -108,12 +108,12 @@ pipeline {
                 script {
                     // Ensure kubectl is in PATH or specify its full path
                     // Assuming kubectl is installed on the Jenkins agent and Minikube is running and configured
-                    sh 'kubectl apply -f django-deployment.yaml'
-                    sh 'kubectl apply -f django-service.yaml'
+                    sh '/home/dilip/bin/kubect kubectl apply -f django-deployment.yaml'
+                    sh '/home/dilip/bin/kubect kubectl apply -f django-service.yaml'
 
                     // Get the Minikube service URL
                     echo 'Waiting for Minikube service to be available and getting its URL...'
-                    def serviceUrl = sh(script: 'minikube service django-app-service --url', returnStdout: true).trim()
+                    def serviceUrl = sh(script: /usr/local/bin/minikube 'minikube service django-app-service --url', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
             }
