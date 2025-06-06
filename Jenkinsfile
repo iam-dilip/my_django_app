@@ -4,20 +4,12 @@ pipeline {
     agent any
 
     environment {
-        // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
-
-        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
         DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
-        // SonarQube specific definitions
-        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins -> Manage Jenkins -> Configure System
-        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave your SonarQube server in Jenkins global config
-        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials (e.g., 'sonarqube-token')
-        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- SET THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
-        // IMPORTANT: This should be the Project Key you created in SonarQube UI
+        SONARQUBE_SERVER_NAME = 'My SonarQube Server'
+        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token'
         SONARQUBE_PROJECT_KEY = 'my-django-app'
-        // IMPORTANT: This should be the Project Name you created in SonarQube UI
         SONARQUBE_PROJECT_NAME = 'My Django App'
     }
 
@@ -48,6 +40,19 @@ pipeline {
             }
         }
 
+        stage('Run Unit and Integration Tests') {
+            steps {
+                echo 'Running unit/integration tests...'
+                script {
+                    // REMOVED 'pip install -r requirements.txt' from here.
+                    // These dependencies should already be installed in the Docker image
+                    // during the 'Build Docker Image' stage.
+                    sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest \
+                        python -m pytest --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml"
+                }
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube analysis...'
@@ -60,17 +65,17 @@ pipeline {
                             -Dsonar.projectName='${env.SONARQUBE_PROJECT_NAME}' \
                             -Dsonar.sources=./ \
                             -Dsonar.python.version=3.10 \
-                            -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**'"
+                            -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**' \
+                            -Dsonar.python.xunit.reportPaths=junit.xml \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml"
                     }
                 }
             }
         }
 
-        stage('SonarQube Quality Gate (Non-Blocking)') { // Renamed stage for clarity
+        stage('SonarQube Quality Gate (Non-Blocking)') {
             steps {
                 echo 'SonarQube analysis submitted. Proceeding without waiting for Quality Gate status.'
-                // The waitForQualityGate step is removed to make this stage truly non-blocking.
-                // The analysis results will still be available on the SonarQube server.
             }
         }
 
