@@ -9,6 +9,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
+# Expose the port your Django app runs on (default is 8000)
+EXPOSE 8000 # <--- ADD THIS LINE
+
 # Install any system dependencies your app might need (optional for this simple app)
 # Uncomment and add if you use PostgreSQL (libpq-dev) or other native libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
