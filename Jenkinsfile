@@ -4,12 +4,20 @@ pipeline {
     agent any
 
     environment {
+        // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
+
+        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
         DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
-        SONARQUBE_SERVER_NAME = 'My SonarQube Server'
-        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token'
+        // SonarQube specific definitions
+        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins -> Manage Jenkins -> Configure System
+        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave your SonarQube server in Jenkins global config
+        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials (e.g., 'sonarqube-token')
+        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- SET THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
+        // IMPORTANT: This should be the Project Key you created in SonarQube UI
         SONARQUBE_PROJECT_KEY = 'my-django-app'
+        // IMPORTANT: This should be the Project Name you created in SonarQube UI
         SONARQUBE_PROJECT_NAME = 'My Django App'
     }
 
@@ -115,27 +123,6 @@ pipeline {
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
-                    // --- NEW DEBUGGING STEPS ---
-                    echo 'Waiting for Pods to be ready (max 120 seconds)...'
-                    sh '/usr/local/bin/minikube kubectl -- rollout status deployment/django-app-deployment --timeout=120s'
-
-                    echo 'Getting Pods status:'
-                    sh '/usr/local/bin/minikube kubectl -- get pods -o wide'
-
-                    echo 'Describing Pods for django-app-deployment (check Events for errors):'
-                    // Get the name of the latest pod for detailed description
-                    def podName = sh(script: '/usr/local/bin/minikube kubectl -- get pods -l app=django-app -o jsonpath="{.items[0].metadata.name}" --sort-by=.metadata.creationTimestamp', returnStdout: true).trim()
-                    if (podName) {
-                        sh "/usr/local/bin/minikube kubectl -- describe pod ${podName}"
-                        echo "Fetching logs from pod ${podName}:"
-                        sh "/usr/local/bin/minikube kubectl -- logs ${podName}"
-                    } else {
-                        echo "No pod found for django-app-deployment yet."
-                    }
-                    echo '--- End Pod Debugging ---'
-                    // --- END NEW DEBUGGING STEPS ---
-
-
                     echo 'Waiting for Minikube service to be available and getting its URL...'
                     def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
@@ -154,17 +141,22 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished.'
-            script {
-                echo 'Stopping and deleting Minikube...'
-                sh '/usr/local/bin/minikube stop || true'
-                sh '/usr/local/bin/minikube delete || true'
-            }
         }
         success {
             echo 'Pipeline completed successfully!'
+            // Minikube cleanup removed from here to keep it running after successful build
+            // You will need to manually stop/delete Minikube when done:
+            // minikube stop
+            // minikube delete
         }
         failure {
             echo 'Pipeline failed. Check logs for details.'
+            // Keep cleanup on failure to free up resources if something went wrong
+            script {
+                echo 'Stopping and deleting Minikube due to pipeline failure...'
+                sh '/usr/local/bin/minikube stop || true'
+                sh '/usr/local/bin/minikube delete || true'
+            }
         }
     }
 }
