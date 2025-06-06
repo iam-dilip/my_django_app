@@ -4,20 +4,12 @@ pipeline {
     agent any
 
     environment {
-        // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
-
-        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
         DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
-        // SonarQube specific definitions
-        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins -> Manage Jenkins -> Configure System
-        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave your SonarQube server in Jenkins global config
-        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials (e.g., 'sonarqube-token')
-        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- SET THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
-        // IMPORTANT: This should be the Project Key you created in SonarQube UI
+        SONARQUBE_SERVER_NAME = 'My SonarQube Server'
+        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token'
         SONARQUBE_PROJECT_KEY = 'my-django-app'
-        // IMPORTANT: This should be the Project Name you created in SonarQube UI
         SONARQUBE_PROJECT_NAME = 'My Django App'
     }
 
@@ -115,7 +107,6 @@ pipeline {
             steps {
                 echo 'Starting Minikube for deployment...'
                 script {
-                    // Minikube profile and configs will be created/managed in Jenkins user's home (~/.minikube)
                     sh '/usr/local/bin/minikube start --driver=docker --wait=all --embed-certs'
                     sh '/usr/local/bin/minikube addons enable ingress'
 
@@ -123,9 +114,31 @@ pipeline {
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
-                    echo 'Waiting for Minikube service to be available and getting its URL...'
-                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
+                    // --- DEBUGGING & URL RETRIEVAL ---
+                    echo 'Waiting for Pods to be ready (max 120 seconds)...'
+                    // This command will wait for the deployment to roll out successfully.
+                    sh '/usr/local/bin/minikube kubectl -- rollout status deployment/django-app-deployment --timeout=120s'
+
+                    echo 'Getting Pods status:'
+                    sh '/usr/local/bin/minikube kubectl -- get pods -o wide'
+
+                    echo 'Describing Pods for django-app-deployment (check Events for errors):'
+                    def podName = sh(script: '/usr/local/bin/minikube kubectl -- get pods -l app=django-app -o jsonpath="{.items[0].metadata.name}" --sort-by=.metadata.creationTimestamp', returnStdout: true).trim()
+                    if (podName) {
+                        sh "/usr/local/bin/minikube kubectl -- describe pod ${podName}"
+                        echo "Fetching logs from pod ${podName}:"
+                        sh "/usr/local/bin/minikube kubectl -- logs ${podName}"
+                    } else {
+                        echo "No pod found for django-app-deployment yet."
+                    }
+                    echo '--- End Pod Debugging ---'
+
+                    echo 'Attempting to get Minikube service URL...'
+                    // Use '|| true' to make the command succeed in Jenkins, even if minikube service
+                    // returns an error code due to its internal checks, as it prints the URL anyway.
+                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url || true', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
+                    // --- END DEBUGGING & URL RETRIEVAL ---
                 }
             }
         }
