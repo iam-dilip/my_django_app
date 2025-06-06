@@ -102,7 +102,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to Minikube') { # NEW DEPLOYMENT STAGE
+        stage('Deploy to Minikube') {
             steps {
                 echo 'Deploying application to Minikube...'
                 script {
