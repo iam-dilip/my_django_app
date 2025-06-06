@@ -102,18 +102,17 @@ pipeline {
             }
         }
 
+        // NEW DEPLOYMENT STAGE
         stage('Deploy to Minikube') {
             steps {
                 echo 'Deploying application to Minikube...'
                 script {
-                    // Ensure kubectl is in PATH or specify its full path
-                    // Assuming kubectl is installed on the Jenkins agent and Minikube is running and configured
-                    sh '/home/dilip/bin/kubect kubectl apply -f django-deployment.yaml'
-                    sh '/home/dilip/bin/kubect kubectl apply -f django-service.yaml'
+                    // Using the full paths to kubectl and minikube
+                    sh '/home/dilip/bin/kubectl apply -f django-deployment.yaml'
+                    sh '/home/dilip/bin/kubectl apply -f django-service.yaml'
 
-                    // Get the Minikube service URL
                     echo 'Waiting for Minikube service to be available and getting its URL...'
-                    def serviceUrl = sh('script: /usr/local/bin/minikube 'minikube service django-app-service --url', returnStdout: true).trim()
+                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
             }
@@ -121,8 +120,8 @@ pipeline {
 
         stage('Deploy (Placeholder)') {
             steps {
-                echo 'Deployment stage: This is where you would add your deployment logic.'
-                echo "Image to deploy: ${env.DOCKER_IMAGE_NAME}:latest"
+                echo 'Deployment stage is now handled in "Deploy to Minikube".'
+                echo 'This placeholder stage is no longer strictly necessary.'
             }
         }
     }
