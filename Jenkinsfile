@@ -4,12 +4,20 @@ pipeline {
     agent any
 
     environment {
+        // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
+
+        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
         DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
 
-        SONARQUBE_SERVER_NAME = 'My SonarQube Server'
-        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token'
+        // SonarQube specific definitions
+        // IMPORTANT: This is the NAME of the SonarQube server configured in Jenkins -> Manage Jenkins -> Configure System
+        SONARQUBE_SERVER_NAME = 'My SonarQube Server' // Use the name you gave your SonarQube server in Jenkins global config
+        // IMPORTANT: This is the CREDENTIAL ID of the SonarQube token you configured in Jenkins Credentials (e.g., 'sonarqube-token')
+        SONARQUBE_CREDENTIAL_ID = 'sonarqube-token' // <--- SET THIS TO YOUR ACTUAL SONARQUBE TOKEN CREDENTIAL ID
+        // IMPORTANT: This should be the Project Key you created in SonarQube UI
         SONARQUBE_PROJECT_KEY = 'my-django-app'
+        // IMPORTANT: This should be the Project Name you created in SonarQube UI
         SONARQUBE_PROJECT_NAME = 'My Django App'
     }
 
@@ -102,22 +110,27 @@ pipeline {
             }
         }
 
-        // NEW DEPLOYMENT STAGE
+        // Deploy to Minikube Stage
         stage('Deploy to Minikube') {
             steps {
                 echo 'Deploying application to Minikube...'
                 script {
-                    // Using the full paths to kubectl and minikube
-                    sh '/home/dilip/bin/kubectl apply -f django-deployment.yaml'
-                    sh '/home/dilip/bin/kubectl apply -f django-service.yaml'
+                    // Explicitly set KUBECONFIG to point to the copied config for Jenkins user
+                    withEnv(["KUBECONFIG=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig"]) {
+                        // Using the full paths to kubectl and minikube as provided by you
+                        sh '/home/dilip/bin/kubectl apply -f django-deployment.yaml'
+                        sh '/home/dilip/bin/kubectl apply -f django-service.yaml'
 
-                    echo 'Waiting for Minikube service to be available and getting its URL...'
-                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
-                    echo "Django application deployed and accessible at: ${serviceUrl}"
+                        echo 'Waiting for Minikube service to be available and getting its URL...'
+                        // Minikube command also needs to be told about the Kubeconfig if it's not default for the user
+                        def serviceUrl = sh(script: "/usr/local/bin/minikube --kubeconfig=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig service django-app-service --url", returnStdout: true).trim()
+                        echo "Django application deployed and accessible at: ${serviceUrl}"
+                    }
                 }
             }
         }
 
+        // This placeholder stage is no longer strictly necessary as deployment is handled above.
         stage('Deploy (Placeholder)') {
             steps {
                 echo 'Deployment stage is now handled in "Deploy to Minikube".'
