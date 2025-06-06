@@ -115,18 +115,17 @@ pipeline {
             steps {
                 echo 'Starting Minikube for deployment...'
                 script {
-                    // Start Minikube, ensuring it's ready. This runs as the Jenkins user,
-                    // so its ~/.minikube will be /var/lib/jenkins/.minikube
+                    // Minikube profile and configs will be created/managed in Jenkins user's home (~/.minikube)
+                    // The minikube command itself will implicitly find this.
                     sh '/usr/local/bin/minikube start --driver=docker --wait=all --embed-certs'
-                    sh '/usr/local/bin/minikube addons enable ingress' // Ingress is often useful for accessing services
+                    sh '/usr/local/bin/minikube addons enable ingress' // Ingress is often useful for exposing services
 
                     echo 'Deploying application to Minikube...'
-                    // Now kubectl (proxied via minikube) should find its own config in ~/.minikube (of Jenkins user)
+                    // kubectl is proxied through minikube, and it will also use the Jenkins user's kubeconfig
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
                     sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
                     echo 'Waiting for Minikube service to be available and getting its URL...'
-                    // The minikube service command also respects the current user's ~/.minikube (Jenkins user)
                     def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
@@ -148,7 +147,8 @@ pipeline {
             // Clean up Minikube after each build, regardless of success/failure
             script {
                 echo 'Stopping and deleting Minikube...'
-                // Use '|| true' to prevent pipeline failure if minikube is already stopped/deleted
+                // These commands will also use the Jenkins user's ~/.minikube profile.
+                // Use '|| true' to prevent pipeline failure if minikube is not running or already deleted.
                 sh '/usr/local/bin/minikube stop || true'
                 sh '/usr/local/bin/minikube delete || true'
             }
