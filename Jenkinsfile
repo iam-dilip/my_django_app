@@ -110,24 +110,25 @@ pipeline {
             }
         }
 
-        // Deploy to Minikube Stage
+        // Deploy to Minikube Stage - Minikube lifecycle managed by Jenkins
         stage('Deploy to Minikube') {
             steps {
-                echo 'Deploying application to Minikube...'
+                echo 'Starting Minikube for deployment...'
                 script {
-                    // Explicitly set MINIKUBE_HOME for the Jenkins user.
-                    // This is the correct way to tell minikube itself where its profiles are located.
-                    withEnv(["MINIKUBE_HOME=/var/lib/jenkins"]) {
-                        // Use minikube kubectl without --kubeconfig flag.
-                        // minikube kubectl implicitly uses MINIKUBE_HOME for its context.
-                        sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
-                        sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
+                    // Start Minikube, ensuring it's ready. This runs as the Jenkins user,
+                    // so its ~/.minikube will be /var/lib/jenkins/.minikube
+                    sh '/usr/local/bin/minikube start --driver=docker --wait=all --embed-certs'
+                    sh '/usr/local/bin/minikube addons enable ingress' // Ingress is often useful for accessing services
 
-                        echo 'Waiting for Minikube service to be available and getting its URL...'
-                        // The minikube service command also respects MINIKUBE_HOME.
-                        def serviceUrl = sh(script: "/usr/local/bin/minikube service django-app-service --url", returnStdout: true).trim()
-                        echo "Django application deployed and accessible at: ${serviceUrl}"
-                    }
+                    echo 'Deploying application to Minikube...'
+                    // Now kubectl (proxied via minikube) should find its own config in ~/.minikube (of Jenkins user)
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
+
+                    echo 'Waiting for Minikube service to be available and getting its URL...'
+                    // The minikube service command also respects the current user's ~/.minikube (Jenkins user)
+                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
+                    echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
             }
         }
@@ -144,6 +145,13 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished.'
+            // Clean up Minikube after each build, regardless of success/failure
+            script {
+                echo 'Stopping and deleting Minikube...'
+                // Use '|| true' to prevent pipeline failure if minikube is already stopped/deleted
+                sh '/usr/local/bin/minikube stop || true'
+                sh '/usr/local/bin/minikube delete || true'
+            }
         }
         success {
             echo 'Pipeline completed successfully!'
