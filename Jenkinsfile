@@ -115,17 +115,15 @@ pipeline {
             steps {
                 echo 'Deploying application to Minikube...'
                 script {
-                    // Explicitly set KUBECONFIG to point to the copied config for Jenkins user
-                    withEnv(["KUBECONFIG=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig"]) {
-                        // Using the full paths to kubectl and minikube as provided by you
-                        sh '/home/dilip/bin/kubectl apply -f django-deployment.yaml'
-                        sh '/home/dilip/bin/kubectl apply -f django-service.yaml'
+                    // Using minikube kubectl to ensure the correct context and authentication
+                    // This bypasses many permission issues with direct kubectl calls
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
-                        echo 'Waiting for Minikube service to be available and getting its URL...'
-                        // Minikube command also needs to be told about the Kubeconfig if it's not default for the user
-                        def serviceUrl = sh(script: "/usr/local/bin/minikube --kubeconfig=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig service django-app-service --url", returnStdout: true).trim()
-                        echo "Django application deployed and accessible at: ${serviceUrl}"
-                    }
+                    echo 'Waiting for Minikube service to be available and getting its URL...'
+                    // Minikube command itself
+                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url', returnStdout: true).trim()
+                    echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
             }
         }
