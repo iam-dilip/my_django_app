@@ -115,16 +115,16 @@ pipeline {
             steps {
                 echo 'Deploying application to Minikube...'
                 script {
-                    // Explicitly set MINIKUBE_HOME to Jenkins user's home directory.
-                    // This is essential for minikube itself to find its profiles and certificates.
+                    // Explicitly set MINIKUBE_HOME for the Jenkins user.
+                    // This is the correct way to tell minikube itself where its profiles are located.
                     withEnv(["MINIKUBE_HOME=/var/lib/jenkins"]) {
-                        // Use minikube kubectl and explicitly point it to the correct kubeconfig file.
-                        // This ensures authentication and context are correctly picked up.
-                        sh '/usr/local/bin/minikube --kubeconfig=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig kubectl -- apply -f django-deployment.yaml'
-                        sh '/usr/local/bin/minikube --kubeconfig=/var/lib/jenkins/.minikube/profiles/minikube/kubeconfig kubectl -- apply -f django-service.yaml'
+                        // Use minikube kubectl without --kubeconfig flag.
+                        // minikube kubectl implicitly uses MINIKUBE_HOME for its context.
+                        sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
+                        sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
                         echo 'Waiting for Minikube service to be available and getting its URL...'
-                        // The minikube service command also needs its home specified via MINIKUBE_HOME.
+                        // The minikube service command also respects MINIKUBE_HOME.
                         def serviceUrl = sh(script: "/usr/local/bin/minikube service django-app-service --url", returnStdout: true).trim()
                         echo "Django application deployed and accessible at: ${serviceUrl}"
                     }
