@@ -44,11 +44,11 @@ pipeline {
             steps {
                 echo 'Running unit/integration tests...'
                 script {
-                    // REMOVED 'pip install -r requirements.txt' from here.
-                    // These dependencies should already be installed in the Docker image
-                    // during the 'Build Docker Image' stage.
+                    // Mount the current workspace to /app
+                    // Use --verbose and specify the 'tests/' directory explicitly for pytest
+                    // This tells pytest to look for tests specifically within the 'tests' folder.
                     sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest \
-                        python -m pytest --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml"
+                        python -m pytest --verbose tests/ --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml"
                 }
             }
         }
