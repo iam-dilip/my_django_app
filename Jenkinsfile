@@ -113,7 +113,7 @@ pipeline {
 
                     // Get the Minikube service URL
                     echo 'Waiting for Minikube service to be available and getting its URL...'
-                    def serviceUrl = sh(script: /usr/local/bin/minikube 'minikube service django-app-service --url', returnStdout: true).trim()
+                    def serviceUrl = sh('script: /usr/local/bin/minikube 'minikube service django-app-service --url', returnStdout: true).trim()
                     echo "Django application deployed and accessible at: ${serviceUrl}"
                 }
             }
