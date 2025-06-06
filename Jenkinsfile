@@ -35,7 +35,7 @@ pipeline {
             steps {
                 echo 'Running basic Django checks inside a temporary container...'
                 script {
-                    sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest python manage.py check"
+                    sh "docker run --rm -v \$(pwd):/app -e DJANGO_SETTINGS_MODULE=myproject.settings ${env.DOCKER_IMAGE_NAME}:latest python manage.py check"
                 }
             }
         }
@@ -44,11 +44,12 @@ pipeline {
             steps {
                 echo 'Running unit/integration tests...'
                 script {
-                    // REMOVED 'pip install -r requirements.txt' from here.
-                    // These dependencies should already be installed in the Docker image
-                    // during the 'Build Docker Image' stage.
-                    sh "docker run --rm -v \$(pwd):/app ${env.DOCKER_IMAGE_NAME}:latest \
-                        python -m pytest --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml"
+                    sh "docker run --rm -v \$(pwd):/app -e DJANGO_SETTINGS_MODULE=myproject.settings ${env.DOCKER_IMAGE_NAME}:latest sh -c \"\
+                        echo 'Listing contents of /app/tests/:' && \
+                        ls -R tests/ && \
+                        echo '--- End tests directory listing ---' && \
+                        python -m pytest --verbose tests/ --junitxml=junit.xml --cov=. --cov-report=xml:coverage.xml \
+                    \""
                 }
             }
         }
