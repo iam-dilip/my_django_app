@@ -102,6 +102,23 @@ pipeline {
             }
         }
 
+        stage('Deploy to Minikube') { # NEW DEPLOYMENT STAGE
+            steps {
+                echo 'Deploying application to Minikube...'
+                script {
+                    // Ensure kubectl is in PATH or specify its full path
+                    // Assuming kubectl is installed on the Jenkins agent and Minikube is running and configured
+                    sh 'kubectl apply -f django-deployment.yaml'
+                    sh 'kubectl apply -f django-service.yaml'
+
+                    // Get the Minikube service URL
+                    echo 'Waiting for Minikube service to be available and getting its URL...'
+                    def serviceUrl = sh(script: 'minikube service django-app-service --url', returnStdout: true).trim()
+                    echo "Django application deployed and accessible at: ${serviceUrl}"
+                }
+            }
+        }
+
         stage('Deploy (Placeholder)') {
             steps {
                 echo 'Deployment stage: This is where you would add your deployment logic.'
