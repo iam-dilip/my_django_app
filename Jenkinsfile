@@ -7,7 +7,7 @@ pipeline {
         // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
 
-        // User's Docker Hub username (updated to iamdilipkumar)
+        // User's Docker Hub username (iamdilipkumar)
         DOCKER_USER_ID = 'iamdilipkumar'
         DOCKER_IMAGE_NAME = "${env.DOCKER_USER_ID}/my-django-app"
 
@@ -17,19 +17,8 @@ pipeline {
         SONARQUBE_PROJECT_KEY = 'my-django-app'
         SONARQUBE_PROJECT_NAME = 'My Django App'
 
-        // Argo CD GitOps Repository Information
-        // IMPORTANT: Replace with the clone URL of your NEW GitOps repository
-        // This is a SEPARATE repo for your Kubernetes manifests (e.g., https://github.com/iam-dilip/my-django-app-k8s-manifests.git)
-        GITOPS_REPO_URL = 'https://github.com/iam-dilip/my-django-app-k8s-manifests.git' // *** MAKE SURE THIS IS YOUR ACTUAL GITOPS MANIFESTS REPO ***
-        GITOPS_REPO_BRANCH = 'main' // Or your desired branch in the GitOps repo
-        GITOPS_MANIFEST_PATH = './' // Path within the GitOps repo where deployment.yaml resides
-
-        // Credentials for pushing to GitOps Repo (if private)
-        // If your GitOps repo is private, you'll need to create a Jenkins credential (e.g., type 'Username with password')
-        // for GitHub access and replace 'YOUR_GITOPS_CREDENTIAL_ID' with that ID.
-        // For a public repo, you might not need credentials here, but 'git push' might still prompt depending on setup.
-        // If private, uncomment the withCredentials block in the 'Update GitOps Manifests for Argo CD' stage:
-        // GITOPS_CREDENTIALS_ID = 'your-github-pat-credential-id'
+        // Kubeconfig path for Jenkins to access Minikube (from previous successful setup)
+        JENKINS_KUBECONFIG_PATH = '/tmp/minikube-kubeconfig-for-jenkins' // Ensure Jenkins has read access here
     }
 
     stages {
@@ -122,51 +111,46 @@ pipeline {
             }
         }
 
-        // NEW STAGE: Update Kubernetes Manifests in GitOps Repo for Argo CD
-        stage('Update GitOps Manifests for Argo CD') {
+        // Deploy to Minikube Stage (direct deployment, no Argo CD)
+        stage('Deploy to Minikube') {
             steps {
-                echo 'Updating Kubernetes manifests in GitOps repository for Argo CD...'
+                echo 'Starting Minikube for deployment...'
                 script {
-                    // Create a temporary directory to clone the GitOps repo
-                    dir("gitops-manifests-clone") {
-                        // Clone the GitOps repository
-                        // If your GitOps repo is private, uncomment the withCredentials block and replace GITOPS_CREDENTIALS_ID:
-                        // withCredentials([usernamePassword(credentialsId: env.GITOPS_CREDENTIALS_ID, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
-                        //     sh "git clone https://\${GIT_USERNAME}:\${GIT_TOKEN}@github.com/iam-dilip/my-django-app-k8s-manifests.git ."
-                        // }
-                        git branch: env.GITOPS_REPO_BRANCH, url: env.GITOPS_REPO_URL
+                    sh '/usr/local/bin/minikube start --driver=docker --wait=all --embed-certs'
+                    sh '/usr/local/bin/minikube addons enable ingress'
 
-                        // Navigate into the specific path within the GitOps repo if needed
-                        dir(env.GITOPS_MANIFEST_PATH) {
-                            // Update the image tag in django-deployment.yaml
-                            // This uses 'sed' to replace the image tag
-                            // Ensure your deployment.yaml has the image line in the format: 'image: your_docker_hub_username/your_app_name:some_tag'
-                            sh "sed -i 's|image: ${env.DOCKER_USER_ID}/my-django-app:.*|image: ${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}|g' django-deployment.yaml"
-                        }
+                    echo 'Deploying application to Minikube...'
+                    // Ensure the image tag in your local django-deployment.yaml matches the newly built image
+                    sh "sed -i 's|image: ${env.DOCKER_USER_ID}/my-django-app:.*|image: ${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}|g' django-deployment.yaml"
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-deployment.yaml'
+                    sh '/usr/local/bin/minikube kubectl -- apply -f django-service.yaml'
 
+                    // Add a wait for rollout to complete to ensure the pod is truly ready
+                    echo 'Waiting for Django app deployment rollout to complete (max 120s)...'
+                    sh '/usr/local/bin/minikube kubectl -- rollout status deployment/django-app-deployment --timeout=120s'
 
-                        // Stage and commit the changes
-                        sh 'git add .'
-                        sh 'git config user.email "jenkins@example.com"' // Set a dummy email for the commit
-                        sh 'git config user.name "Jenkins CI/CD"'       // Set a dummy name for the commit
-                        sh 'git commit -m "CI: Update Django app image to ${BUILD_NUMBER} for Argo CD"'
+                    echo 'Attempting to get Minikube service URL...'
+                    // Use || true to prevent this step from failing the pipeline, as it prints the URL regardless
+                    def serviceUrl = sh(script: '/usr/local/bin/minikube service django-app-service --url || true', returnStdout: true).trim()
+                    echo "Django application deployed and accessible at: ${serviceUrl}"
 
-                        // Push the changes to the GitOps repository
-                        // If private, use withCredentials:
-                        // withCredentials([usernamePassword(credentialsId: env.GITOPS_CREDENTIALS_ID, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
-                        //     sh "git push https://\${GIT_USERNAME}:\${GIT_TOKEN}@github.com/iam-dilip/my-django-app-k8s-manifests.git ${env.GITOPS_REPO_BRANCH}"
-                        // }
-                        sh "git push origin ${env.GITOPS_REPO_BRANCH}" // Assuming public repo or PAT configured globally
-                    }
+                    // IMPORTANT: Generate kubeconfig for 'dilip' user to access Minikube
+                    echo 'Generating kubeconfig for dilip user...'
+                    sh(script: """
+                        # Get the kubeconfig content
+                        KUBECONFIG_CONTENT=\$(/usr/local/bin/minikube kubectl -- config view --flatten --minify)
+
+                        # Define a shared path for the kubeconfig (accessible by dilip)
+                        KUBECONFIG_FOR_DILIP="/tmp/minikube-kubeconfig-for-dilip"
+
+                        # Write to the shared file
+                        echo "\${KUBECONFIG_CONTENT}" > "\${KUBECONFIG_FOR_DILIP}"
+
+                        # Set read permissions for others (Dilip)
+                        chmod o+r "\${KUBECONFIG_FOR_DILIP}"
+                        echo "Kubeconfig for dilip user saved to: \${KUBECONFIG_FOR_DILIP} with read permissions."
+                    """)
                 }
-            }
-        }
-
-        // This stage now serves as a confirmation/pointer to Argo CD
-        stage('Deployment Status (Managed by Argo CD)') {
-            steps {
-                echo 'Deployment is now managed by Argo CD. Jenkins has updated the GitOps repository.'
-                echo 'Check Argo CD UI for live deployment status and health: https://localhost:8080 or https://localhost:8081' // Suggesting both for user's convenience
             }
         }
     }
