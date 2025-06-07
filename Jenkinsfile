@@ -5,7 +5,7 @@ pipeline {
 
     environment {
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
-        DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
+        DOCKER_IMAGE_NAME = 'iamdilipkumar/my-django-app'
 
         SONARQUBE_SERVER_NAME = 'My SonarQube Server'
         SONARQUBE_CREDENTIAL_ID = 'sonarqube-token'
@@ -17,7 +17,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Cloning the Git repository...'
-                git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
+                git branch: 'main', url: 'https://github.com/iam-dilip/my_django_app.git'
             }
         }
 
