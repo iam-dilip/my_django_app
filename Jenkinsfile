@@ -1,4 +1,4 @@
-// Jenkinsfile (place this in the root of your Git repository)
+// Jenkinsfile (place this in the root of your Git repository: https://github.com/iam-dilip/my_django_app.git)
 
 pipeline {
     agent any
@@ -7,8 +7,9 @@ pipeline {
         // IMPORTANT: Replace 'dockerhub-credentials' with the actual ID of your Docker Hub credentials
         DOCKER_REGISTRY_CREDENTIALS_ID = 'dockerhub-credentials'
 
-        // IMPORTANT: Change 'dilip10jan' to your actual Docker Hub username!
-        DOCKER_IMAGE_NAME = 'dilip10jan/my-django-app'
+        // User's Docker Hub username (updated to iamdilipkumar)
+        DOCKER_USER_ID = 'iamdilipkumar'
+        DOCKER_IMAGE_NAME = "${env.DOCKER_USER_ID}/my-django-app"
 
         // SonarQube specific definitions
         SONARQUBE_SERVER_NAME = 'My SonarQube Server'
@@ -18,7 +19,8 @@ pipeline {
 
         // Argo CD GitOps Repository Information
         // IMPORTANT: Replace with the clone URL of your NEW GitOps repository
-        GITOPS_REPO_URL = 'https://github.com/dilip10jan/my-django-app-k8s-manifests.git'
+        // This is a SEPARATE repo for your Kubernetes manifests (e.g., https://github.com/iam-dilip/my-django-app-k8s-manifests.git)
+        GITOPS_REPO_URL = 'https://github.com/iam-dilip/my-django-app-k8s-manifests.git' // *** MAKE SURE THIS IS YOUR ACTUAL GITOPS MANIFESTS REPO ***
         GITOPS_REPO_BRANCH = 'main' // Or your desired branch in the GitOps repo
         GITOPS_MANIFEST_PATH = './' // Path within the GitOps repo where deployment.yaml resides
 
@@ -26,8 +28,7 @@ pipeline {
         // If your GitOps repo is private, you'll need to create a Jenkins credential (e.g., type 'Username with password')
         // for GitHub access and replace 'YOUR_GITOPS_CREDENTIAL_ID' with that ID.
         // For a public repo, you might not need credentials here, but 'git push' might still prompt depending on setup.
-        // Assuming public repo for simplicity in this example, or PAT is configured globally for Git.
-        // If private, uncomment and replace:
+        // If private, uncomment the withCredentials block in the 'Update GitOps Manifests for Argo CD' stage:
         // GITOPS_CREDENTIALS_ID = 'your-github-pat-credential-id'
     }
 
@@ -35,7 +36,8 @@ pipeline {
         stage('Checkout Application Code') {
             steps {
                 echo 'Cloning the application Git repository...'
-                git branch: 'main', url: 'https://github.com/dilip10jan/my_django_app.git'
+                // Using the updated GitHub repository URL
+                git branch: 'main', url: 'https://github.com/iam-dilip/my_django_app.git'
             }
         }
 
@@ -86,7 +88,7 @@ pipeline {
                             -Dsonar.python.version=3.10 \
                             -Dsonar.exclusions='venv/**,**/__pycache__/**,db.sqlite3,**/migrations/**,.git/**' \
                             -Dsonar.python.xunit.reportPaths=junit.xml \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml"
+                            -Dsonar.python.coverage.reportPaths=xml:coverage.xml"
                     }
                 }
             }
@@ -128,9 +130,9 @@ pipeline {
                     // Create a temporary directory to clone the GitOps repo
                     dir("gitops-manifests-clone") {
                         // Clone the GitOps repository
-                        // If your GitOps repo is private, you would use withCredentials here:
-                        // withCredentials([sshUserPrivateKey(credentialsId: env.GITOPS_CREDENTIALS_ID, keyFileVariable: 'GIT_SSH_KEY')]) {
-                        //     sh "git clone git@github.com:<your_username>/my-django-app-k8s-manifests.git ."
+                        // If your GitOps repo is private, uncomment the withCredentials block and replace GITOPS_CREDENTIALS_ID:
+                        // withCredentials([usernamePassword(credentialsId: env.GITOPS_CREDENTIALS_ID, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
+                        //     sh "git clone https://\${GIT_USERNAME}:\${GIT_TOKEN}@github.com/iam-dilip/my-django-app-k8s-manifests.git ."
                         // }
                         git branch: env.GITOPS_REPO_BRANCH, url: env.GITOPS_REPO_URL
 
@@ -139,7 +141,7 @@ pipeline {
                             // Update the image tag in django-deployment.yaml
                             // This uses 'sed' to replace the image tag
                             // Ensure your deployment.yaml has the image line in the format: 'image: your_docker_hub_username/your_app_name:some_tag'
-                            sh "sed -i 's|image: dilip10jan/my-django-app:.*|image: ${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}|g' django-deployment.yaml"
+                            sh "sed -i 's|image: ${env.DOCKER_USER_ID}/my-django-app:.*|image: ${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}|g' django-deployment.yaml"
                         }
 
 
@@ -151,8 +153,8 @@ pipeline {
 
                         // Push the changes to the GitOps repository
                         // If private, use withCredentials:
-                        // withCredentials([sshUserPrivateKey(credentialsId: env.GITOPS_CREDENTIALS_ID, keyFileVariable: 'GIT_SSH_KEY')]) {
-                        //     sh "git push origin ${env.GITOPS_REPO_BRANCH}"
+                        // withCredentials([usernamePassword(credentialsId: env.GITOPS_CREDENTIALS_ID, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
+                        //     sh "git push https://\${GIT_USERNAME}:\${GIT_TOKEN}@github.com/iam-dilip/my-django-app-k8s-manifests.git ${env.GITOPS_REPO_BRANCH}"
                         // }
                         sh "git push origin ${env.GITOPS_REPO_BRANCH}" // Assuming public repo or PAT configured globally
                     }
@@ -164,7 +166,7 @@ pipeline {
         stage('Deployment Status (Managed by Argo CD)') {
             steps {
                 echo 'Deployment is now managed by Argo CD. Jenkins has updated the GitOps repository.'
-                echo 'Check Argo CD UI for live deployment status and health: https://localhost:8080'
+                echo 'Check Argo CD UI for live deployment status and health: https://localhost:8080 or https://localhost:8081' // Suggesting both for user's convenience
             }
         }
     }
