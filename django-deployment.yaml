@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: django-app
-        image: dilip10jan/my-django-app:latest # Make sure this matches your Docker Hub username/image
+        image: iamdilipkumar/my-django-app:latest # Make sure this matches your Docker Hub username/image
         ports:
         - containerPort: 8000 # The port your Django app listens on
         env:
